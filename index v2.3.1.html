@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incentive Hours</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        select, input, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .totals {
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: center;
+        }
+        .entry-list {
+            margin-top: 20px;
+        }
+        .entry {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Incentive Hours</h2>
+
+        <label for="toggle">Select Trauma Level:</label>
+        <select id="toggle" onchange="updateTaskRates()">
+            <option value="trauma1" selected>Trauma 1</option>
+            <option value="trauma2">Trauma 2, 3, 4</option>
+        </select>
+
+        <label for="date">Select Date:</label>
+        <select id="date"></select>
+
+        <label for="task">Select Task:</label>
+        <select id="task"></select>
+
+        <label for="hours">Enter Hours:</label>
+        <input type="number" id="hours" step="0.25" min="0" placeholder="e.g., 1.5">
+
+        <button onclick="addEntry()">Add Entry</button>
+
+        <div id="entries" class="entry-list"></div>
+
+        <div class="totals">
+            Total Incentive Pay: <span id="total-dollars">$0.00</span>
+        </div>
+
+        <button onclick="downloadReport()">Download Report</button>
+    </div>
+
+    <script>
+        // Populate the date dropdown with a two-week interval
+        // Initialize task rates for Trauma 1 on page load
+        window.onload = updateTaskRates;
+        const dateSelect = document.getElementById('date');
+        const today = new Date();
+
+        for (let i = 0; i < 14; i++) {
+            const date = new Date();
+            date.setDate(today.getDate() + i);
+            const option = document.createElement('option');
+            option.value = date.toISOString().split('T')[0];
+            option.textContent = date.toDateString();
+            dateSelect.appendChild(option);
+        }
+
+        // Update task rates based on trauma level
+        function updateTaskRates() {
+            const traumaLevel = document.getElementById('toggle').value;
+            const taskSelect = document.getElementById('task');
+
+            if (traumaLevel === 'trauma1') {
+                taskSelect.innerHTML = `
+                    <option value="30">Shift Extension after 15 minutes ($30/hr)</option>
+                    <option value="35">Monday-Thursday Night after 1900 ($35/hr)</option>
+                    <option value="25">Weekend Days ($25/hr)</option>
+                    <option value="45">Weekend Nights ($45/hr)</option>
+                    <option value="50">Holiday Days ($50/hr)</option>
+                    <option value="70">Holiday Nights ($70/hr)</option>
+                    <option value="350">Unrestricted Call ($350/12hr shift)</option>
+                    <option value="50">Activated Call ($50/hr with 2 hour min)</option>
+                    <option value="190">Extra Shift ($190/hr)</option>`;
+            } else {
+                taskSelect.innerHTML = `
+                    <option value="30">Shift Extension after 15 minutes ($30/hr)</option>
+                    <option value="15">Monday-Thursday Night after 1900 ($15/hr)</option>
+                    <option value="15">Weekend Days ($15/hr)</option>
+                    <option value="15">Weekend Nights ($15/hr)</option>
+                    <option value="30">Holiday Days ($30/hr)</option>
+                    <option value="50">Holiday Nights ($50/hr)</option>
+                    <option value="250">Unrestricted Call ($250/12hr shift)</option>
+                    <option value="50">Activated Call ($50/hr with 2 hour min)</option>
+                    <option value="190">Extra Shift ($190/hr)</option>`;
+            }
+        }
+
+        // Store entries
+        const entries = [];
+
+        // Add entry and update totals
+        function addEntry() {
+            const selectedDate = dateSelect.value;
+            const taskRate = parseFloat(document.getElementById('task').value);
+            const taskText = document.getElementById('task').options[document.getElementById('task').selectedIndex].text;
+            const hours = parseFloat(document.getElementById('hours').value) || 0;
+
+            if (selectedDate && taskRate > 0 && hours > 0) {
+                const total = taskRate * hours;
+                entries.push({ date: selectedDate, task: taskText, taskRate, hours, total });
+                updateTotals();
+                renderEntries();
+            } else {
+                alert('Please select a valid date, task, and enter hours.');
+            }
+        }
+
+        // Render the list of entries
+        function renderEntries() {
+            const entriesDiv = document.getElementById('entries');
+            entriesDiv.innerHTML = '<div class="entry"><strong>Date, Task, Hours, Pay</strong></div>';
+            entries.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'entry';
+                entryDiv.textContent = `${entry.date}, ${entry.task}, ${entry.hours} hrs, $${entry.total.toFixed(2)}`;
+                entriesDiv.appendChild(entryDiv);
+            });
+        }
+
+        // Update total dollars
+        function updateTotals() {
+            const totalDollars = entries.reduce((sum, entry) => sum + entry.total, 0);
+            document.getElementById('total-dollars').textContent = `$${totalDollars.toFixed(2)}`;
+        }
+
+        // Download report as a spreadsheet
+        function downloadReport() {
+            if (entries.length === 0) {
+                alert('No entries to download.');
+                return;
+            }
+
+            const startDate = entries[0].date;
+            const endDate = entries[entries.length - 1].date;
+
+            if (!confirm(`Download report for date range: ${startDate} to ${endDate}?`)) {
+                return;
+            }
+
+            const filename = `Report_${startDate}_to_${endDate}.csv`;
+
+            let csvContent = "Date,Task,Task Rate,Hours,Total\n";
+            entries.forEach(entry => {
+                csvContent += `${entry.date},${entry.task},$${entry.taskRate},${entry.hours},$${entry.total.toFixed(2)}\n`;
+            });
+
+            const totalDollars = entries.reduce((sum, entry) => sum + entry.total, 0);
+            csvContent += `\n,,,Total Incentive Pay,$${totalDollars.toFixed(2)}\n`;
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', filename);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    </script>
+</body>
+</html>
